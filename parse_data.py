@@ -27,6 +27,7 @@ def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num
         iclasses = pandas.read_csv(input_classes,header=None)
         iclasses = list(iclasses[0])
         retained_classes = [ r for r in retained_classes if r in input_classes]
+        print("Limited to the %d classes specified from the input file" % len(input_classes))
 
     class_names = pandas.read_csv(class_names)
     ids_names, names_ids = {}, {}
@@ -55,10 +56,10 @@ def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num
         for c in cl:
             if c not in retained_classes:
                 continue
-            c = ids_names[c]
-            if c not in classes_videoids:
-                classes_videoids[c] = []
-            classes_videoids[c].append(data_id)
+            cname = ids_names[c]
+            if cname not in classes_videoids:
+                classes_videoids[cname] = []
+            classes_videoids[cname].append(data_id)
 
     # read class ontology
     ontology = {}
@@ -164,7 +165,7 @@ def count_data_per_class(name, names_ids, ids_names, classes_videoids, ontology)
     for cid in children:
         child_name = ids_names[cid]
         if not classes_videoids[child_name]:
-            classes_videoids[cid] = count_data_per_class(child_name, names_ids,ids_names,classes_videoids,ontology)
+            classes_videoids[child_name] = count_data_per_class(child_name, names_ids,ids_names,classes_videoids,ontology)
         #print("Child of",name,":",child_name, classes_videoids[child_name])
         datalist.extend(classes_videoids[child_name])
     if not classes_videoids[name]:
@@ -176,9 +177,17 @@ def count_data_per_class(name, names_ids, ids_names, classes_videoids, ontology)
 
 # -----------------------------------------
 
-def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, min_num_samples):
+def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, min_num_samples, input_classes_file=None):
     print("=========================================")
     print("Checking downloaded data in",data_folder)
+
+    if input_classes_file is not None:
+        input_classes = pandas.read_csv(input_classes_file)
+        print([i for i in input_classes])
+        print(input_classes)
+        print(input_classes)
+        for c in input_classes:
+          classes_videoids = {ids_names[c]:classes_videoids[ids_names[c]] for c in input_classes}
     # read downloaded data
     multiclass_ids = []
     skipped_ids = []
@@ -218,7 +227,7 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
 
     retained_classes = [c for c in classes_to_data if len(classes_to_data[c]) >= min_num_samples]
     classes_to_data = {c:classes_to_data[c] for c in retained_classes}
-    data_to_classes = {d:data_to_classes[d] for d in data_to_classes if any(c in retained_classes for c in [data_to_classes[d]])}
+    data_to_classes = {d:data_to_classes[d] for d in data_to_classes if [c in retained_classes for c in data_to_classes[d] if c in retained_classes] }
 
     print("Retained %d classes having at least %d samples." % (len(classes_to_data), min_num_samples))
     print("Retained %d/%d downloaded videos having at least %d samples." % (len(data_to_classes),num_downloaded_data,min_num_samples))
@@ -229,7 +238,7 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
     for i,cl in enumerate(cl_data):
         print(1+i,"/",len(cl_data),"|",cl,":",ids_names[cl],len(classes_to_data[cl]))
     df = pandas.DataFrame(list(classes_to_data.keys()))
-    df.to_csv("classes.csv")
+    df.to_csv("classes_out.csv")
 
 if __name__ == "__main__":
     # parse arguments
@@ -239,6 +248,7 @@ if __name__ == "__main__":
     parser.add_argument("ontology")
     parser.add_argument("class_names")
     parser.add_argument("quality_file")
+    parser.add_argument("--input_classes")
     args = parser.parse_args()
 
     # read ground truth data:
@@ -250,6 +260,7 @@ if __name__ == "__main__":
 
     roots, names_ids,ids_names, classes_videoids, videoids_classes, ontology, class_set_to_use =\
         read_ground_truth(args.ground_truth, args.class_names, args.ontology, args.quality_file,min_num_samples)
-    read_downloaded_data(args.data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use,min_num_samples)
+
+    read_downloaded_data(args.data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use,min_num_samples, args.input_classes)
 
 
