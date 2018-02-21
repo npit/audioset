@@ -24,8 +24,8 @@ def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num
         retained_classes.append(id)
     print("Kept %d classes with a quality threshold of %f" % (len(retained_classes), quality_threshold))
     if input_classes is not None:
-        iclasses = pandas.read_csv(input_classes,header=None)
-        iclasses = list(iclasses[0])
+        iclasses = pandas.read_csv(input_classes)
+        input_classes = list(iclasses.icol(-1))
         retained_classes = [ r for r in retained_classes if r in input_classes]
         print("Limited to the %d classes specified from the input file" % len(input_classes))
 
@@ -44,7 +44,6 @@ def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num
     video_ids = ground_truth["ids"]
     video_classes = [cl.split(",") for cl in ground_truth["classes"]]
     total_assigned_annotations = []
-
 
     videoids_classes = {}
     classes_videoids = {}
@@ -119,6 +118,8 @@ def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num
     print(len(leafs),"leaf  classes")
     print("Excluded %d classes from %d explicit exclusions" % (len(exclude),  len(exclude_explicit)))
 
+    if input_classes is not None:
+        assert all([ c in leafs for c in input_classes] + [c in input_classes for c in leafs]), "Leaf mismatch with input classes"
     print("Done.")
     return (cl, names_ids,ids_names, classes_videoids, videoids_classes, ontology, leafs)
 
@@ -183,11 +184,9 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
 
     if input_classes_file is not None:
         input_classes = pandas.read_csv(input_classes_file)
-        print([i for i in input_classes])
-        print(input_classes)
-        print(input_classes)
-        for c in input_classes:
-          classes_videoids = {ids_names[c]:classes_videoids[ids_names[c]] for c in input_classes}
+        input_classes = list(input_classes.iloc[:,-1])
+        print("Loaded %d input classes" % len(input_classes))
+        classes_videoids = {ids_names[c]:classes_videoids[ids_names[c]] for c in input_classes}
     # read downloaded data
     multiclass_ids = []
     skipped_ids = []
@@ -259,7 +258,7 @@ if __name__ == "__main__":
     min_num_samples = 40
 
     roots, names_ids,ids_names, classes_videoids, videoids_classes, ontology, class_set_to_use =\
-        read_ground_truth(args.ground_truth, args.class_names, args.ontology, args.quality_file,min_num_samples)
+        read_ground_truth(args.ground_truth, args.class_names, args.ontology, args.quality_file,min_num_samples, args.input_classes)
 
     read_downloaded_data(args.data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use,min_num_samples, args.input_classes)
 
