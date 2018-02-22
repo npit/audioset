@@ -8,11 +8,12 @@ Parse downloaded audioset data
 
 
 # -----------------------------------------
-def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num_samples, input_classes = None):
+def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num_samples, input_classes = None, quality_threshold = 0.8):
     print("=========================================")
     # read quality information
     retained_classes = []
-    quality_threshold = 0.8
+    if quality_threshold is None:
+        quality_threshold = 0.8
     quality_info = pandas.read_csv(quality_file)
     q_ids, q_num_checked, q_num_true = quality_info["label_id"], quality_info["num_rated"],quality_info["num_true"]
     for id,num,true in zip(q_ids, q_num_checked, q_num_true ):
@@ -63,11 +64,13 @@ def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num
     # read class ontology
     ontology = {}
     leafs = []
+    num_non_leafs, num_with_restrictions = 0, 0
     with open(ontology_file) as f:
         list_data = json.load(f)
     for obj in list_data:
         name = obj['name']
         id = obj['id']
+        # skip those dropped by the quality check
         if id not in retained_classes:
             continue
         if not obj["child_ids"]:
@@ -83,9 +86,10 @@ def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num
         if name not in classes_videoids:
             classes_videoids[name] = []
 
+    print("Counted %d leaf classes in the ontology" % len(leafs))
+
     roots = ["Human sounds", "Animal", "Sounds of things", "Music", "Natural sounds", "Channel, environment and background"]
     roots  = [ r for r in roots if r in names_ids]
-
     for cl in retained_names:
         data = classes_videoids[cl]
         if not data:
@@ -97,12 +101,15 @@ def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num
         #print()
     # not restricted
     leafs = [l for l in leafs if not ontology[l]["restrictions"]]
+    print()
+    print("Left with %d leaf classes after removing classes with restrictions." % len(leafs))
     # with samples
     if min_num_samples is not None:
         leafs = [l for l in leafs if len(classes_videoids[ids_names[l]]) >= min_num_samples]
+    print("Left with %d leaf classes after removing classes with less examples than the min = %d." % (len(leafs),min_num_samples))
     # excluding the ones below
-    exclude = []
     exclude_explicit = ["Channel, environment and background"]
+    exclude = []
     for e in exclude_explicit:
         if e not in retained_classes:
             exclude_explicit.remove(e)
@@ -116,8 +123,8 @@ def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num
     for l in leafs:
         name = ids_names[l]
         print(l, name, len(classes_videoids[name]))
-    print(len(leafs),"leaf  classes")
     print("Excluded %d classes from %d explicit exclusions" % (len(exclude),  len(exclude_explicit)))
+    print("Left with %d leaf classes after explicitly removing %d classes and their children." % (len(leafs),len(exclude_explicit)))
 
     if input_classes is not None:
         assert all([ c in leafs for c in input_classes] + [c in input_classes for c in leafs]), "Leaf mismatch with input classes"
@@ -179,7 +186,7 @@ def count_data_per_class(name, names_ids, ids_names, classes_videoids, ontology)
 
 # -----------------------------------------
 
-def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, min_num_samples, input_classes_file=None):
+def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, min_num_samples, outfilename, input_classes_file=None):
     print("=========================================")
     print("Checking downloaded data in",data_folder)
 
@@ -234,13 +241,12 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
 
     cl_data = sorted(classes_to_data,key = lambda d : len(classes_to_data[d]))
     total_data = sum([len(classes_to_data[d]) for d in classes_to_data])
-    print("Total downloaded data:",total_data)
+    print("Total number of videos for the retained %d classes:" % len(classes_to_data),total_data)
     for i,cl in enumerate(cl_data):
         print(1+i,"/",len(cl_data),"|",cl,":",ids_names[cl],len(classes_to_data[cl]))
     df = pandas.DataFrame(list(classes_to_data.keys()))
-    filename = "classes-out.csv"
-    print("Writing resulting classes to",filename)
-    df.to_csv(filename)
+    print("Writing resulting classes to",outfilename)
+    df.to_csv(outfilename)
 
 if __name__ == "__main__":
     # parse arguments
@@ -250,8 +256,9 @@ if __name__ == "__main__":
     parser.add_argument("ontology")
     parser.add_argument("class_names")
     parser.add_argument("quality_file")
-    parser.add_argument("--min_samples")
+    parser.add_argument("--min_samples", type=int)
     parser.add_argument("--input_classes")
+    parser.add_argument("--quality_threshold", type=float)
     args = parser.parse_args()
 
     # read ground truth data:
@@ -260,8 +267,9 @@ if __name__ == "__main__":
     #tree = get_ontology_tree(args.ontology)
     #tree.print()
     roots, names_ids,ids_names, classes_videoids, videoids_classes, ontology, class_set_to_use =\
-        read_ground_truth(args.ground_truth, args.class_names, args.ontology, args.quality_file, args.min_samples, args.input_classes)
+        read_ground_truth(args.ground_truth, args.class_names, args.ontology, args.quality_file, args.min_samples, args.input_classes, args.quality_threshold)
 
-    read_downloaded_data(args.data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, args.min_samples, args.input_classes)
+    outfilename = "classes-out_q%1.2fm%d.csv" % (args.quality_threshold, args.min_samples)
+    read_downloaded_data(args.data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, args.min_samples,  outfilename, args.input_classes)
 
 
