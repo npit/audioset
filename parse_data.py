@@ -98,7 +98,8 @@ def read_ground_truth(gt_file, class_names, ontology_file, quality_file, min_num
     # not restricted
     leafs = [l for l in leafs if not ontology[l]["restrictions"]]
     # with samples
-    leafs = [l for l in leafs if len(classes_videoids[ids_names[l]]) >= min_num_samples]
+    if min_num_samples is not None:
+        leafs = [l for l in leafs if len(classes_videoids[ids_names[l]]) >= min_num_samples]
     # excluding the ones below
     exclude = []
     exclude_explicit = ["Channel, environment and background"]
@@ -224,12 +225,12 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
     print("Not in gt: %d / %d items" % (len(not_in_gt),len(downloaded_ids)))
     print("Downloaded %d/%d relevant videos." % (len(data_to_classes),num_downloaded_data))
 
-    retained_classes = [c for c in classes_to_data if len(classes_to_data[c]) >= min_num_samples]
-    classes_to_data = {c:classes_to_data[c] for c in retained_classes}
-    data_to_classes = {d:data_to_classes[d] for d in data_to_classes if [c in retained_classes for c in data_to_classes[d] if c in retained_classes] }
-
-    print("Retained %d classes having at least %d samples." % (len(classes_to_data), min_num_samples))
-    print("Retained %d/%d downloaded videos having at least %d samples." % (len(data_to_classes),num_downloaded_data,min_num_samples))
+    if min_num_samples is not None:
+        retained_classes = [c for c in classes_to_data if len(classes_to_data[c]) >= min_num_samples]
+        classes_to_data = {c:classes_to_data[c] for c in retained_classes}
+        data_to_classes = {d:data_to_classes[d] for d in data_to_classes if [c in retained_classes for c in data_to_classes[d] if c in retained_classes] }
+        print("Retained %d classes having at least %d samples." % (len(classes_to_data), min_num_samples))
+        print("Retained %d/%d downloaded videos having at least %d samples." % (len(data_to_classes),num_downloaded_data,min_num_samples))
 
     cl_data = sorted(classes_to_data,key = lambda d : len(classes_to_data[d]))
     total_data = sum([len(classes_to_data[d]) for d in classes_to_data])
@@ -237,7 +238,9 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
     for i,cl in enumerate(cl_data):
         print(1+i,"/",len(cl_data),"|",cl,":",ids_names[cl],len(classes_to_data[cl]))
     df = pandas.DataFrame(list(classes_to_data.keys()))
-    df.to_csv("classes_out.csv")
+    filename = "classes-out.csv"
+    print("Writing resulting classes to",filename)
+    df.to_csv(filename)
 
 if __name__ == "__main__":
     # parse arguments
@@ -247,6 +250,7 @@ if __name__ == "__main__":
     parser.add_argument("ontology")
     parser.add_argument("class_names")
     parser.add_argument("quality_file")
+    parser.add_argument("--min_samples")
     parser.add_argument("--input_classes")
     args = parser.parse_args()
 
@@ -255,11 +259,9 @@ if __name__ == "__main__":
     print("Building ontology tree")
     #tree = get_ontology_tree(args.ontology)
     #tree.print()
-    min_num_samples = 40
-
     roots, names_ids,ids_names, classes_videoids, videoids_classes, ontology, class_set_to_use =\
-        read_ground_truth(args.ground_truth, args.class_names, args.ontology, args.quality_file,min_num_samples, args.input_classes)
+        read_ground_truth(args.ground_truth, args.class_names, args.ontology, args.quality_file, args.min_samples, args.input_classes)
 
-    read_downloaded_data(args.data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use,min_num_samples, args.input_classes)
+    read_downloaded_data(args.data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, args.min_samples, args.input_classes)
 
 
