@@ -186,27 +186,32 @@ def count_data_per_class(name, names_ids, ids_names, classes_videoids, ontology)
 
 # -----------------------------------------
 
-def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, min_num_samples, outfilename, input_classes_file=None):
+def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, min_num_samples, outfilename,  empty_video_ids_file):
     print("=========================================")
-    print("Checking downloaded data in",data_folder)
+    print("Checking downloaded data in",data_folder,"with %d classes to use:" % len(class_set_to_use))
+    print(class_set_to_use)
 
-    #if input_classes_file is not None:
-        #input_classes = pandas.read_csv(input_classes_file)
-        #input_classes = list(input_classes.iloc[:,-1])
-        #print("Loaded %d input classes" % len(input_classes))
-        #classes_videoids = {ids_names[c]:classes_videoids[ids_names[c]] for c in input_classes}
+    empty_video_ids = []
+    if empty_video_ids_file is not None:
+        empty_video_ids = pandas.read_csv(empty_video_ids_file, header=None)
+        empty_video_ids = list(empty_video_ids.iloc[:,-1])
+        print("Loaded %d video ids to discard" % len(empty_video_ids))
+
     # read downloaded data
     multiclass_ids = []
     skipped_ids = []
     data_to_classes = {}
     classes_to_data = {}
     downloaded_ids = []
-    num_downloaded_data = len(os.listdir(data_folder))
-    for item in os.listdir(data_folder):
-        idxs = [i for i, x in enumerate(item) if x == "_"]
-        item_id = item[:idxs[-2]]
+    all_video_folders = os.listdir(data_folder)
+    num_downloaded_data = len(all_video_folders)
+    print("%d video folders in the path" % num_downloaded_data)
+    for item_id in all_video_folders:
+        if item_id in empty_video_ids:
+            continue
+        # get video class
         downloaded_ids.append(item_id)
-        class_id = [v for v in videoids_classes[item_id] if v in class_set_to_use]
+        class_id = list(filter(lambda x : x in class_set_to_use, videoids_classes[item_id]))
         item_classnames = [ids_names[i] for i in class_id]
         if not item_classnames:
             skipped_ids.append(item_id)
@@ -216,6 +221,7 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
             continue
         class_id = class_id[0]
 
+        # add to accumulation
         if class_id not in classes_to_data:
             classes_to_data[class_id] = []
         if item_id not in data_to_classes:
@@ -234,33 +240,37 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
 
     if min_num_samples is not None:
         retained_classes = [c for c in classes_to_data if len(classes_to_data[c]) >= min_num_samples]
+        print("Retained %d/%d classes having at least %d samples." % (len(retained_classes),len(classes_to_data), min_num_samples))
         classes_to_data = {c:classes_to_data[c] for c in retained_classes}
         data_to_classes = {d:data_to_classes[d] for d in data_to_classes if [c in retained_classes for c in data_to_classes[d] if c in retained_classes] }
-        print("Retained %d classes having at least %d samples." % (len(classes_to_data), min_num_samples))
-        print("Retained %d/%d downloaded videos, since we're keeping classes having at least %d samples." % (len(data_to_classes),num_downloaded_data,min_num_samples))
+        print("Retained %d/%d downloaded videos having at least %d samples." % (len(data_to_classes),num_downloaded_data,min_num_samples))
 
     class_order = sorted(classes_to_data,key = lambda d : len(classes_to_data[d]))
-    total_data = sum([len(classes_to_data[d]) for d in classes_to_data])
+    total_data = sum([len(classes_to_data[c]) for c in classes_to_data])
     print("Total number of videos for the retained %d classes:" % len(classes_to_data),total_data)
     for i,cl in enumerate(class_order):
-        print(1+i,"/",len(class_order),"|",cl,":",ids_names[cl],len(classes_to_data[cl]))
-    classes_list = sorted(list(classes_to_data.keys()))
-    df = pandas.DataFrame(classes_list)
+        print(1+i,"/",len(class_order),"|",cl,":",ids_names[cl],len(classes_to_data[cl]),classes_to_data[cl][:5])
+
+    # write stuff
+    # resulting classes
+    df = pandas.DataFrame(class_order)
     print("Writing resulting classes to",outfilename)
     df.to_csv(outfilename)
 
-    # write video paths
+    # video paths
     pathsfile = outfilename + ".paths"
     print("Writing paths file to", pathsfile)
-    print("Writing class index file to", pathsfile + ".classidx")
     with open(pathsfile, "w") as f:
         for class_index, cl in enumerate(class_order):
             for id in classes_to_data[cl]:
                 f.write("%s %d\n" % (id, class_index))
 
-    with open(pathsfile + ".classidx", "w") as fi:
-        classname = ids_names[cl]
-        fi.write("%s,%s,%d\n" % (cl, classname, class_index))
+    # class ids/names/idxs
+    print("Writing class index file to", pathsfile + ".classidx")
+    with open(pathsfile + ".classidx", "w") as f:
+        for class_index, class_id in enumerate(class_order):
+            classname = ids_names[cl]
+            f.write("%s,%s,%d\n" % (class_id, classname, class_index))
 
 if __name__ == "__main__":
     # parse arguments
@@ -273,6 +283,7 @@ if __name__ == "__main__":
     parser.add_argument("--min_samples", type=int)
     parser.add_argument("--input_classes")
     parser.add_argument("--quality_threshold", type=float)
+    parser.add_argument("--empty_video_ids")
     args = parser.parse_args()
 
     # read ground truth data:
@@ -285,6 +296,6 @@ if __name__ == "__main__":
 
     iclasses_str = "" if args.input_classes is None else "_[%s]" % os.path.basename(args.input_classes)
     outfilename = "classes-out%s_q%1.2fm%d.csv" % (iclasses_str, args.quality_threshold, args.min_samples)
-    read_downloaded_data(args.data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, args.min_samples,  outfilename, args.input_classes)
+    read_downloaded_data(args.data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, args.min_samples,  outfilename, args.empty_video_ids)
 
 
