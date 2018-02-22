@@ -244,9 +244,23 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
     print("Total number of videos for the retained %d classes:" % len(classes_to_data),total_data)
     for i,cl in enumerate(cl_data):
         print(1+i,"/",len(cl_data),"|",cl,":",ids_names[cl],len(classes_to_data[cl]))
-    df = pandas.DataFrame(list(classes_to_data.keys()))
+    classes_list = sorted(list(classes_to_data.keys()))
+    df = pandas.DataFrame(classes_list)
     print("Writing resulting classes to",outfilename)
     df.to_csv(outfilename)
+
+    # write video paths
+    pathsfile = outfilename + ".paths"
+    print("Writing paths file to", pathsfile)
+    print("Writing class index file to", pathsfile + ".classidx")
+    with open(pathsfile, "w") as f:
+        with open(pathsfile + ".classidx", "w") as fi:
+            for class_index, cl in enumerate(classes_list):
+                for id in classes_to_data[cl]:
+                    f.write("%s %d\n" % (id, class_index))
+                classname = ids_names[cl]
+                fi.write("%s,%s,%d\n" % (cl, classname, class_index))
+
 
 if __name__ == "__main__":
     # parse arguments
@@ -269,7 +283,8 @@ if __name__ == "__main__":
     roots, names_ids,ids_names, classes_videoids, videoids_classes, ontology, class_set_to_use =\
         read_ground_truth(args.ground_truth, args.class_names, args.ontology, args.quality_file, args.min_samples, args.input_classes, args.quality_threshold)
 
-    outfilename = "classes-out_q%1.2fm%d.csv" % (args.quality_threshold, args.min_samples)
+    iclasses_str = "" if args.input_classes is None else "_[%s]" % os.path.basename(args.input_classes)
+    outfilename = "classes-out%s_q%1.2fm%d.csv" % (iclasses_str, args.quality_threshold, args.min_samples)
     read_downloaded_data(args.data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, args.min_samples,  outfilename, args.input_classes)
 
 
