@@ -190,11 +190,11 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
     print("=========================================")
     print("Checking downloaded data in",data_folder)
 
-    if input_classes_file is not None:
-        input_classes = pandas.read_csv(input_classes_file)
-        input_classes = list(input_classes.iloc[:,-1])
-        print("Loaded %d input classes" % len(input_classes))
-        classes_videoids = {ids_names[c]:classes_videoids[ids_names[c]] for c in input_classes}
+    #if input_classes_file is not None:
+        #input_classes = pandas.read_csv(input_classes_file)
+        #input_classes = list(input_classes.iloc[:,-1])
+        #print("Loaded %d input classes" % len(input_classes))
+        #classes_videoids = {ids_names[c]:classes_videoids[ids_names[c]] for c in input_classes}
     # read downloaded data
     multiclass_ids = []
     skipped_ids = []
@@ -237,13 +237,13 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
         classes_to_data = {c:classes_to_data[c] for c in retained_classes}
         data_to_classes = {d:data_to_classes[d] for d in data_to_classes if [c in retained_classes for c in data_to_classes[d] if c in retained_classes] }
         print("Retained %d classes having at least %d samples." % (len(classes_to_data), min_num_samples))
-        print("Retained %d/%d downloaded videos having at least %d samples." % (len(data_to_classes),num_downloaded_data,min_num_samples))
+        print("Retained %d/%d downloaded videos, since we're keeping classes having at least %d samples." % (len(data_to_classes),num_downloaded_data,min_num_samples))
 
-    cl_data = sorted(classes_to_data,key = lambda d : len(classes_to_data[d]))
+    class_order = sorted(classes_to_data,key = lambda d : len(classes_to_data[d]))
     total_data = sum([len(classes_to_data[d]) for d in classes_to_data])
     print("Total number of videos for the retained %d classes:" % len(classes_to_data),total_data)
-    for i,cl in enumerate(cl_data):
-        print(1+i,"/",len(cl_data),"|",cl,":",ids_names[cl],len(classes_to_data[cl]))
+    for i,cl in enumerate(class_order):
+        print(1+i,"/",len(class_order),"|",cl,":",ids_names[cl],len(classes_to_data[cl]))
     classes_list = sorted(list(classes_to_data.keys()))
     df = pandas.DataFrame(classes_list)
     print("Writing resulting classes to",outfilename)
@@ -254,13 +254,13 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
     print("Writing paths file to", pathsfile)
     print("Writing class index file to", pathsfile + ".classidx")
     with open(pathsfile, "w") as f:
-        with open(pathsfile + ".classidx", "w") as fi:
-            for class_index, cl in enumerate(classes_list):
-                for id in classes_to_data[cl]:
-                    f.write("%s %d\n" % (id, class_index))
-                classname = ids_names[cl]
-                fi.write("%s,%s,%d\n" % (cl, classname, class_index))
+        for class_index, cl in enumerate(class_order):
+            for id in classes_to_data[cl]:
+                f.write("%s %d\n" % (id, class_index))
 
+    with open(pathsfile + ".classidx", "w") as fi:
+        classname = ids_names[cl]
+        fi.write("%s,%s,%d\n" % (cl, classname, class_index))
 
 if __name__ == "__main__":
     # parse arguments
