@@ -189,7 +189,6 @@ def count_data_per_class(name, names_ids, ids_names, classes_videoids, ontology)
 def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_names, class_set_to_use, min_num_samples, outfilename,  empty_video_ids_file):
     print("=========================================")
     print("Checking downloaded data in",data_folder,"with %d classes to use:" % len(class_set_to_use))
-    print(class_set_to_use)
 
     empty_video_ids = []
     if empty_video_ids_file is not None:
@@ -238,6 +237,10 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
     print("Not in gt: %d / %d items" % (len(not_in_gt),len(downloaded_ids)))
     print("Downloaded %d/%d relevant videos." % (len(data_to_classes),num_downloaded_data))
 
+    print("Samples per data:")
+    class_order = sorted(classes_to_data, key = lambda d : len(classes_to_data[d]))
+    for i,cl in enumerate(class_order):
+        print(1+i,"/",len(class_order),"|",cl,":",ids_names[cl],len(classes_to_data[cl]),classes_to_data[cl][:5])
     if min_num_samples is not None:
         retained_classes = [c for c in classes_to_data if len(classes_to_data[c]) >= min_num_samples]
         print("Retained %d/%d classes having at least %d samples." % (len(retained_classes),len(classes_to_data), min_num_samples))
@@ -245,9 +248,10 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
         data_to_classes = {d:data_to_classes[d] for d in data_to_classes if [c in retained_classes for c in data_to_classes[d] if c in retained_classes] }
         print("Retained %d/%d downloaded videos having at least %d samples." % (len(data_to_classes),num_downloaded_data,min_num_samples))
 
-    class_order = sorted(classes_to_data,key = lambda d : len(classes_to_data[d]))
+    class_order = sorted(classes_to_data, key = lambda d : len(classes_to_data[d]))
     total_data = sum([len(classes_to_data[c]) for c in classes_to_data])
     print("Total number of videos for the retained %d classes:" % len(classes_to_data),total_data)
+    print("*Final* samples per data:")
     for i,cl in enumerate(class_order):
         print(1+i,"/",len(class_order),"|",cl,":",ids_names[cl],len(classes_to_data[cl]),classes_to_data[cl][:5])
 

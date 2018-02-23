@@ -4,7 +4,7 @@ import argparse
 parser=argparse.ArgumentParser()
 parser.add_argument("input")
 parser.add_argument("suffix")
-parser.add_argument("--simulate")
+parser.add_argument("--simulate",action="store_true")
 args = parser.parse_args()
 
 log = open("renaming_log.txt","w")
@@ -19,7 +19,8 @@ for folder in os.listdir(args.input):
     print('new folder name:',folderpath)
 
     log.write("%s -> %s\n" % (oldfolderpath, folderpath))
-    os.rename(oldfolderpath, folderpath)
+    if not args.simulate:
+        os.rename(oldfolderpath, folderpath)
 
     # rename the spectrogram images themeselves to numeric.extension
     spectros = os.listdir(folderpath)
@@ -30,7 +31,8 @@ for folder in os.listdir(args.input):
             spectropath_new = os.path.join(folderpath, spectroname_new)
             print("\t",s,"->", spectropath_new)
             log.write("%s -> %s\n" % (spectropath_old, spectropath_new))
-            os.rename(spectropath_old, spectropath_new)
+            if not args.simulate:
+                os.rename(spectropath_old, spectropath_new)
         else:
             print("Does not start with 'segment' prefix!")
             log.close()
