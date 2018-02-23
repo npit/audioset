@@ -262,7 +262,7 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
     df.to_csv(outfilename)
 
     # video paths
-    pathsfile = outfilename + ".paths"
+    pathsfile = "paths." + outfilename
     print("Writing paths file to", pathsfile)
     with open(pathsfile, "w") as f:
         for class_index, cl in enumerate(class_order):
@@ -271,7 +271,7 @@ def read_downloaded_data(data_folder, classes_videoids, videoids_classes, ids_na
 
     # class ids/names/idxs
     print("Writing class index file to", pathsfile + ".classidx")
-    with open(pathsfile + ".classidx", "w") as f:
+    with open("classidx." + pathsfile, "w") as f:
         for class_index, class_id in enumerate(class_order):
             classname = ids_names[cl]
             f.write("%s,%s,%d\n" % (class_id, classname, class_index))
